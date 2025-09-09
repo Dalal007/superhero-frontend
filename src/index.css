@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@reference "tailwindcss";
+
+/* small helpers */
+.container {
+  @apply max-w-screen-2xl mx-auto px-3;
+}
+.card {
+  @apply bg-white dark:bg-zinc-900 rounded-2xl shadow p-4;
+}
+.btn {
+  @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl shadow font-medium bg-black text-white dark:bg-white dark:text-black;
+}
+.input {
+  @apply px-3 py-2 rounded-xl border w-full bg-white/80 dark:bg-zinc-800;
+}
