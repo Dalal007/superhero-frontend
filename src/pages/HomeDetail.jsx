@@ -69,17 +69,13 @@ export default function HeroDetail() {
     try {
       setLoading(true);
       setError("");
-      console.log("Saving hero data:", patch);
       
       const response = await api.patch(`/heroes/${id}`, patch);
-      console.log("Update response:", response.data);
       
       // Fetch updated hero data
       const { data } = await api.get(`/heroes/${id}`);
-      console.log("Updated hero data:", data);
       setHero(data);
     } catch (e) {
-      console.error("Error saving hero:", e);
       if (e?.response?.status === 404) {
         navigate("/404");
       } else {

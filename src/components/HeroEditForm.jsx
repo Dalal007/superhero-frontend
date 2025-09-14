@@ -103,11 +103,9 @@ export default function HeroEditForm({ hero, onSave, onCancel, isEditing, setIsE
         }
       };
 
-      console.log("Form data being submitted:", submitData);
       await onSave(submitData);
       setIsEditing(false);
     } catch (error) {
-      console.error("Error saving hero:", error);
     } finally {
       setSubmitting(false);
     }
