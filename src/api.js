@@ -10,4 +10,14 @@ api.interceptors.request.use((cfg) => {
   return cfg;
 });
 
+// Admin API functions
+export const adminApi = {
+  getUsers: (page = 1, limit = 10, queryParams = "") => {
+    const baseUrl = `/admin/users?page=${page}&limit=${limit}`;
+    return api.get(queryParams ? `${baseUrl}&${queryParams}` : baseUrl);
+  },
+  updateUserRole: (userId, role) => api.patch(`/admin/users/${userId}/role`, { role }),
+  deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
+};
+
 export default api;
