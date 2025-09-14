@@ -28,6 +28,11 @@ export default function Nav() {
               <NavLink to="/favorites" className="hover:underline">
                 Favourites
               </NavLink>
+              {user.role === "admin" && (
+                <NavLink to="/admin/users" className="hover:underline">
+                  Admin
+                </NavLink>
+              )}
             </>
           )}
         </nav>
