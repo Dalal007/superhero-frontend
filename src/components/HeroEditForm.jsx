@@ -1,13 +1,53 @@
 import React, { useState, useEffect } from "react";
+import { Formik, Form, Field, ErrorMessage } from "formik";
+import * as Yup from "yup";
+
+// Validation schema
+const validationSchema = Yup.object({
+  name: Yup.string().required("Name is required"),
+  imageUrl: Yup.string().url("Must be a valid URL"),
+  powerstats: Yup.object({
+    intelligence: Yup.number().min(0, "Must be between 0 and 100").max(100, "Must be between 0 and 100").required(),
+    strength: Yup.number().min(0, "Must be between 0 and 100").max(100, "Must be between 0 and 100").required(),
+    speed: Yup.number().min(0, "Must be between 0 and 100").max(100, "Must be between 0 and 100").required(),
+    durability: Yup.number().min(0, "Must be between 0 and 100").max(100, "Must be between 0 and 100").required(),
+    power: Yup.number().min(0, "Must be between 0 and 100").max(100, "Must be between 0 and 100").required(),
+    combat: Yup.number().min(0, "Must be between 0 and 100").max(100, "Must be between 0 and 100").required(),
+  }),
+  biography: Yup.object({
+    fullName: Yup.string(),
+    alterEgos: Yup.string(),
+    aliases: Yup.string(),
+    placeOfBirth: Yup.string(),
+    firstAppearance: Yup.string(),
+    publisher: Yup.string(),
+    alignment: Yup.string(),
+  }),
+  appearance: Yup.object({
+    gender: Yup.string(),
+    race: Yup.string(),
+    height: Yup.string(),
+    weight: Yup.string(),
+    eyeColor: Yup.string(),
+    hairColor: Yup.string(),
+  }),
+  work: Yup.object({
+    occupation: Yup.string(),
+    base: Yup.string(),
+  }),
+  connections: Yup.object({
+    groupAffiliation: Yup.string(),
+    relatives: Yup.string(),
+  }),
+});
 
 export default function HeroEditForm({ hero, onSave, onCancel, isEditing, setIsEditing }) {
-  const [formData, setFormData] = useState({});
-  const [errors, setErrors] = useState({});
+  const [initialValues, setInitialValues] = useState({});
 
   // Initialize form data when hero changes or when editing starts
   useEffect(() => {
     if (hero && isEditing) {
-      setFormData({
+      setInitialValues({
         name: hero?.name || "",
         imageUrl: hero?.imageUrl || "",
         powerstats: {
@@ -44,71 +84,22 @@ export default function HeroEditForm({ hero, onSave, onCancel, isEditing, setIsE
           relatives: hero?.connections?.relatives || "",
         },
       });
-      setErrors({});
     }
   }, [hero, isEditing]);
 
-  const handleInputChange = (section, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
-    }));
-    
-    // Clear error when user starts typing
-    if (errors[`${section}.${field}`]) {
-      setErrors(prev => ({
-        ...prev,
-        [`${section}.${field}`]: ""
-      }));
-    }
-  };
-
-  const handleArrayInputChange = (section, field, value) => {
-    const arrayValue = value.split(",").map(item => item.trim()).filter(item => item);
-    handleInputChange(section, field, arrayValue);
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required";
-    }
-    
-    // Validate powerstats (0-100 range)
-    Object.entries(formData.powerstats).forEach(([key, value]) => {
-      const numValue = parseInt(value);
-      if (isNaN(numValue) || numValue < 0 || numValue > 100) {
-        newErrors[`powerstats.${key}`] = "Must be a number between 0 and 100";
-      }
-    });
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
+  const handleSubmit = async (values, { setSubmitting }) => {
     try {
       // Prepare data for submission
       const submitData = {
-        ...formData,
+        ...values,
         biography: {
-          ...formData.biography,
-          aliases: formData.biography.aliases ? formData.biography.aliases.split(",").map(item => item.trim()).filter(item => item) : []
+          ...values.biography,
+          aliases: values.biography.aliases ? values.biography.aliases.split(",").map(item => item.trim()).filter(item => item) : []
         },
         appearance: {
-          ...formData.appearance,
-          height: formData.appearance.height ? formData.appearance.height.split(",").map(item => item.trim()).filter(item => item) : [],
-          weight: formData.appearance.weight ? formData.appearance.weight.split(",").map(item => item.trim()).filter(item => item) : []
+          ...values.appearance,
+          height: values.appearance.height ? values.appearance.height.split(",").map(item => item.trim()).filter(item => item) : [],
+          weight: values.appearance.weight ? values.appearance.weight.split(",").map(item => item.trim()).filter(item => item) : []
         }
       };
 
@@ -117,6 +108,8 @@ export default function HeroEditForm({ hero, onSave, onCancel, isEditing, setIsE
       setIsEditing(false);
     } catch (error) {
       console.error("Error saving hero:", error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -131,8 +124,8 @@ export default function HeroEditForm({ hero, onSave, onCancel, isEditing, setIsE
     );
   }
 
-  // Don't render form if formData is not initialized
-  if (!formData.name && !formData.powerstats) {
+  // Don't render form if initialValues is not initialized
+  if (!initialValues.name && !initialValues.powerstats) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-lg p-6">
@@ -157,308 +150,300 @@ export default function HeroEditForm({ hero, onSave, onCancel, isEditing, setIsE
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Hero Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white ${
-                    errors.name ? "border-red-500" : "border-gray-300 focus:border-blue-500"
-                  }`}
-                  required
-                />
-                {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Image URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
-                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                />
-              </div>
-            </div>
-
-            {/* Powerstats */}
-            <div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-900">Power Stats (0-100)</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {Object.entries(formData.powerstats).map(([key, value]) => (
-                  <div key={key}>
-                    <label className="block text-sm font-medium text-gray-900 mb-2 capitalize">
-                      {key}
+          <Formik
+            initialValues={initialValues}
+            validationSchema={validationSchema}
+            onSubmit={handleSubmit}
+            enableReinitialize
+          >
+            {({ values, errors, touched, isSubmitting }) => (
+              <Form className="space-y-6">
+                {/* Basic Information */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-2">
+                      Hero Name *
                     </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={value}
-                      onChange={(e) => handleInputChange("powerstats", key, parseInt(e.target.value) || 0)}
+                    <Field
+                      type="text"
+                      name="name"
                       className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white ${
-                        errors[`powerstats.${key}`] ? "border-red-500" : "border-gray-300 focus:border-blue-500"
+                        errors.name && touched.name ? "border-red-500" : "border-gray-300 focus:border-blue-500"
                       }`}
                     />
-                    {errors[`powerstats.${key}`] && (
-                      <p className="text-red-500 text-sm mt-1">{errors[`powerstats.${key}`]}</p>
-                    )}
+                    <ErrorMessage name="name" component="p" className="text-red-500 text-sm mt-1" />
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Biography */}
-            <div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-900">Biography</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.biography.fullName}
-                    onChange={(e) => handleInputChange("biography", "fullName", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-2">
+                      Image URL
+                    </label>
+                    <Field
+                      type="url"
+                      name="imageUrl"
+                      className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white ${
+                        errors.imageUrl && touched.imageUrl ? "border-red-500" : "border-gray-300 focus:border-blue-500"
+                      }`}
+                    />
+                    <ErrorMessage name="imageUrl" component="p" className="text-red-500 text-sm mt-1" />
+                  </div>
                 </div>
+
+                {/* Powerstats */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Publisher
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.biography.publisher}
-                    onChange={(e) => handleInputChange("biography", "publisher", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
+                  <h3 className="text-xl font-semibold mb-4 text-gray-900">Power Stats (0-100)</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {Object.entries(values.powerstats || {}).map(([key, value]) => (
+                      <div key={key}>
+                        <label className="block text-sm font-medium text-gray-900 mb-2 capitalize">
+                          {key}
+                        </label>
+                        <Field
+                          type="number"
+                          min="0"
+                          max="100"
+                          name={`powerstats.${key}`}
+                          className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white ${
+                            errors[`powerstats.${key}`] && touched[`powerstats.${key}`] ? "border-red-500" : "border-gray-300 focus:border-blue-500"
+                          }`}
+                        />
+                        <ErrorMessage name={`powerstats.${key}`} component="p" className="text-red-500 text-sm mt-1" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Biography */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Alignment
-                  </label>
-                  <select
-                    value={formData.biography.alignment}
-                    onChange={(e) => handleInputChange("biography", "alignment", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white appearance-none cursor-pointer"
+                  <h3 className="text-xl font-semibold mb-4 text-gray-900">Biography</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Full Name
+                      </label>
+                      <Field
+                        type="text"
+                        name="biography.fullName"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Publisher
+                      </label>
+                      <Field
+                        type="text"
+                        name="biography.publisher"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Alignment
+                      </label>
+                      <Field
+                        as="select"
+                        name="biography.alignment"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white appearance-none cursor-pointer"
+                      >
+                        <option value="">Select Alignment</option>
+                        <option value="good">Good</option>
+                        <option value="bad">Bad</option>
+                        <option value="neutral">Neutral</option>
+                      </Field>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Place of Birth
+                      </label>
+                      <Field
+                        type="text"
+                        name="biography.placeOfBirth"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        First Appearance
+                      </label>
+                      <Field
+                        type="text"
+                        name="biography.firstAppearance"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Alter Egos
+                      </label>
+                      <Field
+                        type="text"
+                        name="biography.alterEgos"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Aliases (comma-separated)
+                      </label>
+                      <Field
+                        type="text"
+                        name="biography.aliases"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
+                        placeholder="Alias 1, Alias 2, Alias 3"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Appearance */}
+                <div>
+                  <h3 className="text-xl font-semibold mb-4 text-gray-900">Appearance</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Gender
+                      </label>
+                      <Field
+                        as="select"
+                        name="appearance.gender"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white appearance-none cursor-pointer"
+                      >
+                        <option value="">Select Gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </Field>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Race
+                      </label>
+                      <Field
+                        type="text"
+                        name="appearance.race"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Eye Color
+                      </label>
+                      <Field
+                        type="text"
+                        name="appearance.eyeColor"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Hair Color
+                      </label>
+                      <Field
+                        type="text"
+                        name="appearance.hairColor"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Height (comma-separated)
+                      </label>
+                      <Field
+                        type="text"
+                        name="appearance.height"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
+                        placeholder={'6\'2", 188 cm'}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Weight (comma-separated)
+                      </label>
+                      <Field
+                        type="text"
+                        name="appearance.weight"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
+                        placeholder={'210 lbs, 95 kg'}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Work */}
+                <div>
+                  <h3 className="text-xl font-semibold mb-4 text-gray-900">Work</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Occupation
+                      </label>
+                      <Field
+                        type="text"
+                        name="work.occupation"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Base
+                      </label>
+                      <Field
+                        type="text"
+                        name="work.base"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Connections */}
+                <div>
+                  <h3 className="text-xl font-semibold mb-4 text-gray-900">Connections</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Group Affiliation
+                      </label>
+                      <Field
+                        type="text"
+                        name="connections.groupAffiliation"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Relatives
+                      </label>
+                      <Field
+                        type="text"
+                        name="connections.relatives"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Form Actions */}
+                <div className="flex justify-end gap-4 pt-6 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Select Alignment</option>
-                    <option value="good">Good</option>
-                    <option value="bad">Bad</option>
-                    <option value="neutral">Neutral</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Place of Birth
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.biography.placeOfBirth}
-                    onChange={(e) => handleInputChange("biography", "placeOfBirth", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    First Appearance
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.biography.firstAppearance}
-                    onChange={(e) => handleInputChange("biography", "firstAppearance", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Alter Egos
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.biography.alterEgos}
-                    onChange={(e) => handleInputChange("biography", "alterEgos", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Aliases (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.biography.aliases}
-                    onChange={(e) => setFormData(prev => ({ ...prev, biography: { ...prev.biography, aliases: e.target.value } }))}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
-                    placeholder="Alias 1, Alias 2, Alias 3"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Appearance */}
-            <div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-900">Appearance</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Gender
-                  </label>
-                  <select
-                    value={formData.appearance.gender}
-                    onChange={(e) => handleInputChange("appearance", "gender", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white appearance-none cursor-pointer"
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   >
-                    <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
+                    {isSubmitting ? "Saving..." : "Save Changes"}
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Race
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.appearance.race}
-                    onChange={(e) => handleInputChange("appearance", "race", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Eye Color
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.appearance.eyeColor}
-                    onChange={(e) => handleInputChange("appearance", "eyeColor", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Hair Color
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.appearance.hairColor}
-                    onChange={(e) => handleInputChange("appearance", "hairColor", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Height (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.appearance.height}
-                    onChange={(e) => setFormData(prev => ({ ...prev, appearance: { ...prev.appearance, height: e.target.value } }))}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
-                    placeholder={'6\'2", 188 cm'}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Weight (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.appearance.weight}
-                    onChange={(e) => setFormData(prev => ({ ...prev, appearance: { ...prev.appearance, weight: e.target.value } }))}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
-                    placeholder={'210 lbs, 95 kg'}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Work */}
-            <div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-900">Work</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Occupation
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.work.occupation}
-                    onChange={(e) => handleInputChange("work", "occupation", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Base
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.work.base}
-                    onChange={(e) => handleInputChange("work", "base", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Connections */}
-            <div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-900">Connections</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Group Affiliation
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.connections.groupAffiliation}
-                    onChange={(e) => handleInputChange("connections", "groupAffiliation", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Relatives
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.connections.relatives}
-                    onChange={(e) => handleInputChange("connections", "relatives", e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Form Actions */}
-            <div className="flex justify-end gap-4 pt-6 border-t">
-              <button
-                type="button"
-                onClick={() => setIsEditing(false)}
-                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
+              </Form>
+            )}
+          </Formik>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
+import { Formik, Form, Field } from "formik";
 import { adminApi } from "../api";
 
 export default function AdminUsers() {
@@ -82,9 +83,10 @@ export default function AdminUsers() {
     fetchUsers(1, newFilters);
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    fetchUsers(1, filters);
+  const handleSearch = (values) => {
+    const newFilters = { ...filters, ...values };
+    setFilters(newFilters);
+    fetchUsers(1, newFilters);
   };
 
   const handleResetFilters = () => {
@@ -134,21 +136,32 @@ export default function AdminUsers() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {/* Search */}
           <div className="md:col-span-2">
-            <form onSubmit={handleSearch} className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Search by name or email..."
-                value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Search
-              </button>
-            </form>
+            <Formik
+              initialValues={{ search: filters.search }}
+              onSubmit={handleSearch}
+              enableReinitialize
+            >
+              {({ values, setFieldValue }) => (
+                <Form className="flex gap-2">
+                  <Field
+                    type="text"
+                    name="search"
+                    placeholder="Search by name or email..."
+                    className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-500"
+                    onChange={(e) => {
+                      setFieldValue("search", e.target.value);
+                      setFilters({ ...filters, search: e.target.value });
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Search
+                  </button>
+                </Form>
+              )}
+            </Formik>
           </div>
 
           {/* Role Filter */}
